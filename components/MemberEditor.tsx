@@ -16,21 +16,19 @@ const MemberEditor: React.FC<MemberEditorProps> = ({ member, members, onUpdate, 
   const t = translations[lang];
 
   const handleChange = (field: keyof FamilyMember, value: string) => {
-    // Basic validation for manual keyboard entry in some browsers
     if (field === 'birthDate' && value) {
       const parts = value.split('-');
-      if (parts[0] && parts[0].length > 4) return; // Prevent 5+ digit years
+      if (parts[0] && parts[0].length > 4) return;
     }
     onUpdate({ ...member, [field]: value });
   };
 
-  // Standard constraints for date picker
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="fixed right-0 top-0 h-full w-96 bg-slate-900/95 backdrop-blur-3xl border-l border-white/10 p-8 shadow-2xl z-50 overflow-y-auto animate-in slide-in-from-right duration-300">
+    <div className="fixed right-0 top-0 h-full w-full sm:w-96 bg-slate-900/95 backdrop-blur-3xl border-l border-white/10 p-6 sm:p-8 shadow-2xl z-[60] overflow-y-auto animate-in slide-in-from-right duration-300">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-bold text-white font-outfit">{t.details}</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-white font-outfit">{t.details}</h2>
         <button onClick={onClose} className="text-white/40 hover:text-white transition-colors p-2">
           <i className="fas fa-times text-xl"></i>
         </button>
@@ -71,7 +69,7 @@ const MemberEditor: React.FC<MemberEditorProps> = ({ member, members, onUpdate, 
           <p className="text-[9px] text-white/30 mt-2 italic">{t.photoTip}</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Gender Select */}
           <div>
             <label className="block text-xs font-bold text-blue-400 uppercase tracking-widest mb-2">{t.gender}</label>

@@ -1,6 +1,18 @@
 
 export type Gender = 'male' | 'female' | 'other';
 
+export type ThemeId = 
+  | 'standard' 
+  | 'minimalist' 
+  | 'cartoon' 
+  | 'handdrawn' 
+  | 'flat' 
+  | 'vintage' 
+  | 'cyberpunk' 
+  | 'nature' 
+  | 'royal' 
+  | 'blueprint';
+
 export interface FamilyMember {
   id: string;
   name: string;
