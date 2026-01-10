@@ -57,7 +57,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!user || isViewingShared || members.length === 0) return;
+    if (!user || isViewingShared || (members.length === 0 && !meId)) return;
     const timer = setTimeout(async () => {
       setIsSyncing(true);
       try { 
@@ -112,6 +112,7 @@ const App: React.FC = () => {
     if (!user) return;
     setMembers(prev => {
       let nextMembers = prev.map(m => m.id === updated.id ? updated : m);
+      // Bi-directional spouse linkage logic
       if (updated.spouseId) {
         nextMembers = nextMembers.map(m => {
           if (m.id === updated.spouseId) return { ...m, spouseId: updated.id };
@@ -136,77 +137,116 @@ const App: React.FC = () => {
     if (!aiInput.trim() || !user) return;
     setIsAiLoading(true);
     try {
-      const parsedData: ParsedFamilyMember[] = await parseFamilyText(aiInput);
+      const parsedData: ParsedFamilyMember[] = await parseFamilyText(aiInput, members);
+      
       setMembers(prev => {
         const nameToIdMap = new Map<string, string>();
         prev.forEach(m => nameToIdMap.set(m.name, m.id));
+        
         const timestamp = Date.now();
-        const newMembersToAdd: FamilyMember[] = [];
+        let nextMembers = [...prev];
 
+        // 1. Create or Identify individuals
         parsedData.forEach((data, idx) => {
-          if (data.name && !nameToIdMap.has(data.name)) {
+          if (!data.name) return;
+          const trimmedName = data.name.trim();
+          if (!nameToIdMap.has(trimmedName)) {
             const newId = `ai-${timestamp}-${idx}`;
-            nameToIdMap.set(data.name, newId);
-            newMembersToAdd.push({ 
-              id: newId, 
-              name: data.name, 
-              gender: (data.gender as any) || 'male', 
-              birthDate: data.birthDate, 
-              bio: data.bio 
+            nameToIdMap.set(trimmedName, newId);
+            nextMembers.push({
+              id: newId,
+              name: trimmedName,
+              gender: (data.gender as any) || 'male',
+              birthDate: data.birthDate,
+              bio: data.bio
             });
+          } else {
+            // Update basic info for existing members
+            const mIdx = nextMembers.findIndex(m => m.name === trimmedName);
+            if (mIdx !== -1) {
+              if (data.gender) nextMembers[mIdx].gender = data.gender as any;
+              if (data.birthDate) nextMembers[mIdx].birthDate = data.birthDate;
+              if (data.bio) nextMembers[mIdx].bio = data.bio;
+            }
           }
         });
 
-        const allNodesBase = [...prev, ...newMembersToAdd];
-        let resolved = allNodesBase.map(member => {
-          const aiUpdate = parsedData.find(d => d.name === member.name);
-          if (!aiUpdate) return member;
+        // 2. Resolve Direct Relationships from AI output
+        nextMembers = nextMembers.map(m => {
+          const aiData = parsedData.find(d => d.name?.trim() === m.name);
+          if (!aiData) return m;
+
+          const updated = { ...m };
           
-          const updatedMember = { ...member };
-          if (aiUpdate.gender) updatedMember.gender = aiUpdate.gender as any;
-          if (aiUpdate.birthDate) updatedMember.birthDate = aiUpdate.birthDate;
-          if (aiUpdate.bio) updatedMember.bio = aiUpdate.bio;
+          // Spouse resolution
+          if (aiData.spouseName) {
+            const sId = nameToIdMap.get(aiData.spouseName.trim());
+            if (sId) updated.spouseId = sId;
+          }
 
-          if (aiUpdate.fatherName) { 
-            const fId = nameToIdMap.get(aiUpdate.fatherName); 
-            if (fId) updatedMember.parentId1 = fId; 
-          }
-          if (aiUpdate.motherName) { 
-            const mId = nameToIdMap.get(aiUpdate.motherName); 
-            if (mId) updatedMember.parentId2 = mId; 
-          }
-          if (aiUpdate.spouseName) { 
-            const sId = nameToIdMap.get(aiUpdate.spouseName); 
-            if (sId) updatedMember.spouseId = sId; 
-          }
-          return updatedMember;
-        });
+          // Parent resolution from parentNames
+          if (aiData.parentNames && aiData.parentNames.length > 0) {
+            aiData.parentNames.forEach(pName => {
+              const pId = nameToIdMap.get(pName.trim());
+              if (!pId) return;
 
-        resolved = resolved.map(member => {
-          if (!member.spouseId) { 
-            const p = resolved.find(m => m.spouseId === member.id); 
-            if (p) return { ...member, spouseId: p.id }; 
-          }
-          return member;
-        });
+              const parentObj = nextMembers.find(pm => pm.id === pId);
+              if (!parentObj) return;
 
-        resolved = resolved.map(member => {
-          const updated = { ...member };
-          if (updated.parentId1 && !updated.parentId2) {
-            const parent1 = resolved.find(m => m.id === updated.parentId1);
-            if (parent1 && parent1.spouseId) updated.parentId2 = parent1.spouseId;
-          }
-          else if (updated.parentId2 && !updated.parentId1) {
-            const parent2 = resolved.find(m => m.id === updated.parentId2);
-            if (parent2 && parent2.spouseId) updated.parentId1 = parent2.spouseId;
+              if (parentObj.gender === 'male') updated.parentId1 = pId;
+              else if (parentObj.gender === 'female') updated.parentId2 = pId;
+              else {
+                if (!updated.parentId1) updated.parentId1 = pId;
+                else if (!updated.parentId2) updated.parentId2 = pId;
+              }
+            });
           }
           return updated;
         });
 
-        return resolved;
+        // 3. Relational Inference Engine
+        // Pass A: Auto-link spouses as second parents for existing children
+        nextMembers = nextMembers.map(child => {
+          const updated = { ...child };
+          
+          // If child has Parent 1 but not Parent 2, check if Parent 1 has a spouse
+          if (updated.parentId1 && !updated.parentId2) {
+            const p1 = nextMembers.find(m => m.id === updated.parentId1);
+            if (p1?.spouseId) {
+              const spouse = nextMembers.find(m => m.id === p1.spouseId);
+              if (spouse?.gender === 'female') updated.parentId2 = spouse.id;
+            }
+          }
+
+          // If child has Parent 2 but not Parent 1, check if Parent 2 has a spouse
+          if (updated.parentId2 && !updated.parentId1) {
+            const p2 = nextMembers.find(m => m.id === updated.parentId2);
+            if (p2?.spouseId) {
+              const spouse = nextMembers.find(m => m.id === p2.spouseId);
+              if (spouse?.gender === 'male') updated.parentId1 = spouse.id;
+            }
+          }
+          return updated;
+        });
+
+        // Pass B: Bi-directional spouse safety (ensure spouse links are mutual)
+        nextMembers = nextMembers.map(m => {
+          if (!m.spouseId) {
+            const partner = nextMembers.find(other => other.spouseId === m.id);
+            if (partner) return { ...m, spouseId: partner.id };
+          }
+          return m;
+        });
+
+        return nextMembers;
       });
+
       setAiInput('');
-    } catch (e) { console.error("AI Error:", e); } finally { setIsAiLoading(false); }
+    } catch (e) { 
+      console.error("Advanced AI Processing Error:", e); 
+    } finally { 
+      setIsAiLoading(false); 
+    }
   };
 
   if (isLoading) return <div className="h-screen w-screen bg-[#020617] flex items-center justify-center animate-pulse"><div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-2xl"><i className="fas fa-tree text-white text-2xl"></i></div></div>;
@@ -273,12 +313,9 @@ const App: React.FC = () => {
           meId={meId}
         />
 
-        {/* RESTRUCTURED BOTTOM BAR - UNIFIED HEIGHT */}
         {!isViewingShared && (
           <div className="absolute bottom-8 left-0 right-0 px-8 z-40 pointer-events-none">
             <div className="max-w-4xl mx-auto flex items-end gap-4 pointer-events-auto">
-              
-              {/* Add Member Button - Unified Height */}
               <button 
                 onClick={handleAddMember} 
                 className="h-16 w-16 bg-blue-600 hover:bg-blue-500 text-white rounded-[24px] shadow-2xl flex items-center justify-center transition-all active:scale-90 group shrink-0 border border-white/10"
@@ -287,7 +324,6 @@ const App: React.FC = () => {
                 <i className="fas fa-plus text-xl transition-transform group-hover:rotate-90"></i>
               </button>
 
-              {/* AI Chat Bar - Unified Height */}
               <div className="flex-1">
                 <div className="h-16 bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-[24px] p-2 flex items-center gap-2 shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
                     <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600/10 shrink-0">

@@ -1,4 +1,5 @@
 
+// Added missing React import to resolve namespace error
 import React from 'react';
 import { FamilyMember, ThemeId } from '../types';
 
@@ -27,7 +28,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
       textColor: 'text-white',
       subTextColor: 'text-white/40',
       genderBadge: isMale ? 'bg-blue-500' : 'bg-pink-500',
-      meBadge: 'bg-yellow-400 text-black'
+      meBadge: 'bg-yellow-400 text-black',
+      tooltip: 'bg-black/60 border-white/10'
     },
     minimalist: {
       card: `bg-white border ${isMe ? 'border-black ring-4 ring-black/5 shadow-xl' : isSelected ? 'border-black ring-2 ring-black/5' : 'border-gray-100 hover:border-gray-300'}`,
@@ -36,43 +38,8 @@ const MemberCard: React.FC<MemberCardProps> = ({
       textColor: 'text-gray-900',
       subTextColor: 'text-gray-400',
       genderBadge: isMale ? 'bg-blue-400' : 'bg-pink-400',
-      meBadge: 'bg-black text-white'
-    },
-    cartoon: {
-      card: `bg-yellow-100 border-4 border-black ${isMe ? 'scale-105 shadow-[8px_8px_0_0_#000]' : isSelected ? 'translate-y-[-4px] translate-x-[-4px] shadow-[6px_6px_0_0_#000]' : 'hover:translate-y-[-2px] shadow-[4px_4px_0_0_#000]'}`,
-      shape: 'rounded-3xl',
-      avatarBorder: 'border-2 border-black bg-white',
-      textColor: 'text-black',
-      subTextColor: 'text-black/60',
-      genderBadge: isMale ? 'bg-blue-400 border-black border-2' : 'bg-pink-400 border-black border-2',
-      meBadge: 'bg-red-500 text-white border-2 border-black'
-    },
-    handdrawn: {
-      card: `bg-[#fdf6e3] border-2 border-slate-700 ${isMe ? 'bg-[#fff] ring-4 ring-yellow-400/30' : isSelected ? 'ring-2 ring-blue-500' : ''}`,
-      shape: 'rounded-[30%_70%_70%_30%/30%_30%_70%_70%]',
-      avatarBorder: 'border-2 border-slate-700 bg-slate-100',
-      textColor: 'text-slate-800',
-      subTextColor: 'text-slate-400',
-      genderBadge: isMale ? 'bg-blue-500' : 'bg-pink-500',
-      meBadge: 'bg-slate-800 text-white'
-    },
-    flat: {
-      card: `${isMe ? 'bg-amber-500' : isSelected ? 'bg-indigo-600' : 'bg-slate-700 hover:bg-slate-600'}`,
-      shape: 'rounded-lg',
-      avatarBorder: 'bg-white/10',
-      textColor: 'text-white',
-      subTextColor: 'text-white/50',
-      genderBadge: isMale ? 'bg-blue-400' : 'bg-pink-400',
-      meBadge: 'bg-white text-amber-600'
-    },
-    vintage: {
-      card: `bg-[#d2b48c]/30 border-2 border-[#8b4513]/40 ${isMe ? 'border-[#8b4513] shadow-lg' : isSelected ? 'bg-[#d2b48c]/60 border-[#8b4513]' : ''}`,
-      shape: 'rounded-md',
-      avatarBorder: 'border-2 border-[#8b4513]/20 bg-[#f5f5dc]',
-      textColor: 'text-[#5d4037]',
-      subTextColor: 'text-[#8b4513]/60',
-      genderBadge: 'bg-[#8b4513]',
-      meBadge: 'bg-[#8b4513] text-[#f5f5dc]'
+      meBadge: 'bg-black text-white',
+      tooltip: 'bg-white border-gray-200 shadow-xl text-gray-800'
     },
     cyberpunk: {
       card: `bg-black/80 border ${isMe ? 'border-yellow-400 shadow-[0_0_20px_#facc15]' : isSelected ? 'border-cyan-400 shadow-[0_0_15px_#22d3ee]' : 'border-magenta-500 shadow-[0_0_10px_#d946ef] hover:border-white'}`,
@@ -81,42 +48,17 @@ const MemberCard: React.FC<MemberCardProps> = ({
       textColor: 'text-cyan-400 font-mono',
       subTextColor: 'text-magenta-400 text-[8px]',
       genderBadge: 'bg-yellow-400 text-black',
-      meBadge: 'bg-yellow-400 text-black'
-    },
-    nature: {
-      card: `bg-green-50 border border-green-200 ${isMe ? 'border-amber-400 bg-amber-50 shadow-xl' : isSelected ? 'bg-green-100 border-green-500 shadow-lg shadow-green-200' : 'hover:bg-green-100/50'}`,
-      shape: 'rounded-full',
-      avatarBorder: 'border-green-300 bg-white',
-      textColor: 'text-green-900',
-      subTextColor: 'text-green-600/60',
-      genderBadge: 'bg-green-500',
-      meBadge: 'bg-amber-500 text-white'
-    },
-    royal: {
-      card: `bg-purple-950 border-2 border-gold-500 ${isMe ? 'ring-4 ring-gold-300 shadow-[0_0_30px_gold]' : isSelected ? 'ring-2 ring-gold-400 shadow-[0_0_20px_gold]' : ''}`,
-      shape: 'rounded-xl',
-      avatarBorder: 'border-2 border-gold-400 bg-purple-900',
-      textColor: 'text-gold-100',
-      subTextColor: 'text-gold-500/80 font-serif',
-      genderBadge: 'bg-gold-500',
-      meBadge: 'bg-white text-purple-950'
-    },
-    blueprint: {
-      card: `bg-blue-950/40 border border-blue-400/30 ${isMe ? 'border-white bg-blue-900/80' : isSelected ? 'bg-blue-900/60 border-blue-200 ring-1 ring-blue-300/50' : 'hover:bg-blue-900/30'}`,
-      shape: 'rounded-none',
-      avatarBorder: 'border border-blue-400/50 bg-blue-900/40',
-      textColor: 'text-blue-200 font-mono',
-      subTextColor: 'text-blue-400/60',
-      genderBadge: 'bg-blue-400',
-      meBadge: 'bg-white text-blue-950'
+      meBadge: 'bg-yellow-400 text-black',
+      tooltip: 'bg-black/90 border-cyan-400/50 shadow-[0_0_30px_rgba(34,211,238,0.2)]'
     }
+    // Fallback logic handled below
   };
 
-  const style = themeStyles[theme] || themeStyles.standard;
+  const style = (themeStyles as any)[theme] || themeStyles.standard;
 
   return (
     <div 
-      className={`absolute node-card-3d cursor-pointer group select-none transition-all duration-500 ${isMe ? 'z-10' : ''}`}
+      className={`absolute node-card-3d cursor-pointer group select-none transition-all duration-500 ${isMe || isSelected ? 'z-50' : 'z-10 hover:z-50'}`}
       style={{ 
         left: x, 
         top: y,
@@ -126,16 +68,6 @@ const MemberCard: React.FC<MemberCardProps> = ({
       }}
       onClick={() => onClick(member.id)}
     >
-      {/* Dynamic Handdrawn filter if theme is handdrawn */}
-      {theme === 'handdrawn' && (
-         <svg className="hidden">
-           <filter id="handdrawn-filter">
-             <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
-             <feDisplacementMap in="SourceGraphic" in2="noise" scale="2" />
-           </filter>
-         </svg>
-      )}
-
       {/* 3D Depth Layer */}
       {theme !== 'minimalist' && theme !== 'blueprint' && (
         <div className={`absolute inset-0 opacity-50 blur-sm translate-z-[-10px] translate-x-1 translate-y-1 ${style.shape} ${theme === 'cartoon' ? 'bg-black' : isMe ? 'bg-yellow-600/20' : 'bg-slate-800'}`}></div>
@@ -147,16 +79,44 @@ const MemberCard: React.FC<MemberCardProps> = ({
           absolute -top-3 -right-3 z-50 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-xl border border-black/10 transition-transform group-hover:scale-110
           ${style.meBadge}
         `}>
-          {/* Fixed "meBadge" undefined error by using the "meLabel" prop. */}
           {meLabel}
         </div>
       )}
+
+      {/* --- Hover Bio Tooltip --- */}
+      <div className={`
+        absolute left-[105%] top-1/2 -translate-y-1/2 ml-4 w-72 p-5 
+        backdrop-blur-2xl border rounded-3xl shadow-2xl 
+        opacity-0 pointer-events-none translate-x-4
+        group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto
+        transition-all duration-300 ease-out z-[100]
+        ${style.tooltip || 'bg-black/70 border-white/10 text-white'}
+      `}>
+        <div className="flex items-center gap-2 mb-3">
+          <div className={`w-1 h-4 rounded-full ${isMale ? 'bg-blue-400' : 'bg-pink-400'}`}></div>
+          <span className="text-xs font-black uppercase tracking-widest opacity-40">{member.name}</span>
+        </div>
+        <div className="max-h-48 overflow-y-auto custom-scrollbar">
+          <p className="text-sm leading-relaxed font-medium">
+            {member.bio || (
+              <span className="opacity-30 italic font-normal">
+                {member.gender === 'male' ? '这位先生' : '这位女士'} 暂时没有留下文字记录，正在等待你书写家园的故事。
+              </span>
+            )}
+          </p>
+        </div>
+        {member.birthDate && (
+          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between opacity-50">
+            <span className="text-[10px] font-bold uppercase tracking-tighter">Born</span>
+            <span className="text-[10px] font-mono">{member.birthDate}</span>
+          </div>
+        )}
+      </div>
 
       {/* Main Surface */}
       <div className={`
         relative h-full w-full p-3 flex items-center gap-3 transition-all duration-300 transform-style-3d
         ${style.card} ${style.shape}
-        ${theme === 'handdrawn' ? '[filter:url(#handdrawn-filter)]' : ''}
       `}>
         {/* Avatar Container */}
         <div className={`

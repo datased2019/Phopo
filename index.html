@@ -33,11 +33,12 @@
     /* Card styling for 2.5D effect */
     .node-card-3d {
       transform-style: preserve-3d;
-      transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
+      transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), z-index 0s;
     }
     
     .node-card-3d:hover {
-      transform: translate3d(-50%, -50%, 40px) !important;
+      transform: translate3d(-50%, -50%, 60px) !important;
+      z-index: 1000 !important;
     }
 
     .vertical-text {
