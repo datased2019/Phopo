@@ -13,6 +13,7 @@ interface TreeRendererProps {
   onInitialize?: () => void;
   isReadOnly?: boolean;
   theme?: ThemeId;
+  meId?: string | null;
 }
 
 export interface TreeRendererRef {
@@ -31,7 +32,8 @@ const TreeRenderer = forwardRef<TreeRendererRef, TreeRendererProps>(({
   lang,
   onInitialize,
   isReadOnly,
-  theme = 'standard'
+  theme = 'standard',
+  meId
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomWrapperRef = useRef<HTMLDivElement>(null);
@@ -44,21 +46,6 @@ const TreeRenderer = forwardRef<TreeRendererRef, TreeRendererProps>(({
   
   const isDragging = useRef(false);
   const lastInteractionPos = useRef({ x: 0, y: 0 });
-
-  useImperativeHandle(ref, () => ({
-    resetView: () => {
-      if (!containerRef.current || !zoomBehaviorRef.current) return;
-      setRotation({ rx: 55, rz: 15 });
-      const initialTransform = d3.zoomIdentity
-        .translate(window.innerWidth / 2, window.innerHeight / 4)
-        .scale(1.2);
-      d3.select(containerRef.current)
-        .transition()
-        .duration(750)
-        .ease(d3.easeCubicInOut)
-        .call(zoomBehaviorRef.current.transform, initialTransform);
-    }
-  }));
 
   const { nodes, links, nodeMap } = useMemo(() => {
     if (members.length === 0) return { nodes: [], links: [], nodeMap: new Map() };
@@ -93,6 +80,51 @@ const TreeRenderer = forwardRef<TreeRendererRef, TreeRendererProps>(({
     }
   }, [members]);
 
+  useImperativeHandle(ref, () => ({
+    resetView: () => {
+      if (!containerRef.current || !zoomBehaviorRef.current) return;
+      
+      const targetRx = 55;
+      const targetRz = 15;
+      setRotation({ rx: targetRx, rz: targetRz });
+      
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      const scale = 1.2;
+      
+      const rxRad = targetRx * Math.PI / 180;
+      const rzRad = targetRz * Math.PI / 180;
+
+      let targetX = 0;
+      let targetY = 0;
+      
+      const meNode = meId ? nodes.find(n => n.id === meId) : null;
+      if (meNode) {
+        targetX = meNode.x;
+        targetY = meNode.y;
+      } else if (nodes.length > 0) {
+        targetX = nodes[0].x;
+        targetY = nodes[0].y;
+      }
+
+      const projectedX = (targetX * Math.cos(rzRad) - targetY * Math.sin(rzRad)) * scale;
+      const projectedY = (targetX * Math.sin(rzRad) + targetY * Math.cos(rzRad)) * Math.cos(rxRad) * scale;
+
+      const tx = width / 2 - projectedX;
+      const ty = height / 2 - projectedY;
+
+      const initialTransform = d3.zoomIdentity
+        .translate(tx, ty)
+        .scale(scale);
+        
+      d3.select(containerRef.current)
+        .transition()
+        .duration(1000)
+        .ease(d3.easeCubicInOut)
+        .call(zoomBehaviorRef.current.transform, initialTransform);
+    }
+  }));
+
   useEffect(() => {
     if (!containerRef.current) return;
     const zoomBehavior = d3.zoom<HTMLDivElement, unknown>().scaleExtent([0.1, 4]).filter((event) => {
@@ -101,7 +133,10 @@ const TreeRenderer = forwardRef<TreeRendererRef, TreeRendererProps>(({
         return true;
       }).on('zoom', (event) => setTransform(event.transform));
     zoomBehaviorRef.current = zoomBehavior;
-    d3.select(containerRef.current).call(zoomBehavior).call(zoomBehavior.transform, d3.zoomIdentity.translate(window.innerWidth / 2, window.innerHeight / 4).scale(1.2));
+    
+    const width = containerRef.current.clientWidth;
+    const height = containerRef.current.clientHeight;
+    d3.select(containerRef.current).call(zoomBehavior).call(zoomBehavior.transform, d3.zoomIdentity.translate(width / 2, height / 4).scale(1.2));
   }, [interactionMode]);
 
   const handleStartInteraction = (x: number, y: number, isRightClick: boolean) => {
@@ -186,7 +221,7 @@ const TreeRenderer = forwardRef<TreeRendererRef, TreeRendererProps>(({
           return <path key={`p-${i}`} d={lineGenerator(link) || ''} fill="none" stroke={colors.p1} strokeWidth={isTech ? 1.5 : 2.5} strokeDasharray={theme === 'handdrawn' ? 'none' : '10,5'} strokeLinecap="round" className="animate-[dash_30s_linear_infinite]" style={{ filter: isTech ? 'url(#glow)' : 'none' }} />;
         })}
         {secondaryLinks.map((link, i) => (
-          <path key={`s-${i}`} d={lineGenerator(link) || ''} fill="none" stroke={colors.p2} strokeWidth={isTech ? 1.5 : 2.5} strokeDasharray="10,5" strokeLinecap="round" className="animate-[dash_30s_linear_infinite] opacity-80" style={{ filter: isTech ? 'url(#glow)' : 'none' }} />
+          <path key={`s-${i}`} d={lineGenerator(link) || ''} fill="none" stroke={colors.p2} strokeWidth={isTech ? 1.5 : 2.5} strokeDasharray="10,5" strokeLinecap="round" className="animate-[dash_20s_linear_infinite] opacity-80" style={{ filter: isTech ? 'url(#glow)' : 'none' }} />
         ))}
         {spouseLinks.map((link, i) => {
            const midX = (link.source.x + link.target.x) / 2;
@@ -206,7 +241,7 @@ const TreeRenderer = forwardRef<TreeRendererRef, TreeRendererProps>(({
       onContextMenu={(e) => e.preventDefault()} 
       className={`relative w-full h-full overflow-hidden isometric-container transition-colors duration-1000 ${colors.bg} ${interactionMode === 'rotate' ? 'cursor-alias' : 'cursor-grab active:cursor-grabbing'}`}
     >
-      {/* Background Grids for Blueprint or Cyberpunk */}
+      {/* Background Grids */}
       {theme === 'blueprint' && (
         <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
       )}
@@ -214,36 +249,77 @@ const TreeRenderer = forwardRef<TreeRendererRef, TreeRendererProps>(({
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(to right, #333 1px, transparent 1px), linear-gradient(to bottom, #333 1px, transparent 1px)', backgroundSize: '80px 80px' }}></div>
       )}
 
+      {/* VIEW CONTROLS - TOP LEFT - IMPROVED ALIGNMENT */}
+      <div className="absolute top-24 left-8 flex flex-col gap-2 z-30 animate-in fade-in slide-in-from-left-4 duration-500 w-32">
+        {/* MODE TOGGLE - HORIZONTAL */}
+        <div className="bg-black/40 backdrop-blur-2xl border border-white/10 p-1 rounded-2xl flex flex-row gap-1 shadow-2xl w-full">
+          <button 
+            onClick={() => setInteractionMode('pan')} 
+            className={`flex-1 h-10 rounded-xl flex items-center justify-center gap-2 transition-all ${interactionMode === 'pan' ? 'bg-blue-600 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+            title={t.panMode}
+          >
+            <i className="fas fa-arrows-alt text-[10px]"></i>
+            <span className="text-[9px] font-black uppercase tracking-tighter">{t.panMode}</span>
+          </button>
+          <button 
+            onClick={() => setInteractionMode('rotate')} 
+            className={`flex-1 h-10 rounded-xl flex items-center justify-center gap-2 transition-all ${interactionMode === 'rotate' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+            title={t.rotateMode}
+          >
+            <i className="fas fa-sync-alt text-[10px]"></i>
+            <span className="text-[9px] font-black uppercase tracking-tighter">{t.rotateMode}</span>
+          </button>
+        </div>
+        
+        {/* SCALE DISPLAY - MATCHED WIDTH */}
+        <div className="bg-black/40 backdrop-blur-xl border border-white/10 px-4 h-10 rounded-2xl flex items-center justify-between shadow-xl border-l-4 border-l-blue-500 w-full">
+          <div className="flex items-center gap-2">
+            <i className="fas fa-expand text-[10px] text-blue-400"></i>
+            <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">{t.scale}</span>
+          </div>
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">{Math.round(transform.k * 100)}%</span>
+        </div>
+      </div>
+
       <div ref={zoomWrapperRef} className="w-full h-full transform-style-3d" style={{ transform: `translate3d(${transform.x}px, ${transform.y}px, 0) scale(${transform.k})` }}>
         <div className="relative w-0 h-0 left-0 top-0 transform-style-3d transition-transform duration-75 ease-out" style={{ transform: `rotateX(${rotation.rx}deg) rotateZ(${rotation.rz}deg)` }}>
           {renderLinks()}
           {nodes.map(node => (
-            <MemberCard key={node.id} member={node.data as FamilyMember} onClick={onMemberSelect} x={node.x} y={node.y} isSelected={selectedId === node.id} theme={theme} />
+            <MemberCard 
+              key={node.id} 
+              member={node.data as FamilyMember} 
+              onClick={onMemberSelect} 
+              x={node.x} 
+              y={node.y} 
+              isSelected={selectedId === node.id} 
+              theme={theme} 
+              isMe={meId === node.id}
+              meLabel={t.meBadge}
+            />
           ))}
         </div>
       </div>
 
+      {/* EMPTY STATE */}
       {nodes.length === 0 && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 backdrop-blur-3xl bg-black/60 animate-in fade-in zoom-in-95 duration-500">
           <div className="relative w-full max-w-4xl bg-slate-900/40 border border-white/10 rounded-[64px] p-8 sm:p-16 md:p-24 shadow-[0_0_120px_rgba(0,0,0,0.8)] text-center ring-1 ring-white/10 overflow-hidden">
-            <div className="relative z-10">
-              <h3 className="text-white text-3xl sm:text-5xl md:text-6xl font-black mb-4 font-outfit tracking-tighter">{t.emptyTreeTitle}</h3>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-40 bg-blue-600/20 blur-[100px] rounded-full"></div>
+            <div className="relative z-10 flex flex-col items-center">
+              <h3 className="text-white text-3xl sm:text-5xl md:text-6xl font-black mb-4 font-outfit tracking-tighter mx-auto">{t.emptyTreeTitle}</h3>
               <p className="text-white/50 text-base sm:text-xl md:text-2xl leading-relaxed mb-8 sm:mb-16 max-w-3xl mx-auto font-light">{t.emptyTreeSub}</p>
-              {!isReadOnly && onInitialize && <button onClick={onInitialize} className="group relative w-full max-w-md py-5 sm:py-8 bg-blue-600 hover:bg-blue-500 text-white rounded-[16px] sm:rounded-[32px] font-black text-xl sm:text-2xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-6">{t.createSelf}</button>}
+              {!isReadOnly && onInitialize && (
+                <div className="w-full flex justify-center">
+                  <button onClick={onInitialize} className="group relative w-full max-w-md py-5 sm:py-8 bg-blue-600 hover:bg-blue-500 text-white rounded-[16px] sm:rounded-[32px] font-black text-xl sm:text-2xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-6 mx-auto">
+                    <i className="fas fa-id-card text-white/80"></i>
+                    {t.createSelf}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
-
-      <div className="absolute bottom-8 right-8 flex flex-col gap-4 items-end z-10">
-        <div className="flex gap-2 bg-black/40 backdrop-blur-xl border border-white/10 p-1.5 rounded-2xl shadow-2xl">
-          <button onClick={() => setInteractionMode('pan')} className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${interactionMode === 'pan' ? 'bg-blue-600 text-white' : 'text-white/40 hover:text-white'}`}><i className="fas fa-arrows-alt"></i><span className="hidden sm:inline ml-2">{t.panMode}</span></button>
-          <button onClick={() => setInteractionMode('rotate')} className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${interactionMode === 'rotate' ? 'bg-indigo-600 text-white' : 'text-white/40 hover:text-white'}`}><i className="fas fa-sync-alt"></i><span className="hidden sm:inline ml-2">{t.rotateMode}</span></button>
-        </div>
-        <div className="bg-black/60 backdrop-blur-md px-4 py-1.5 rounded-full text-[9px] font-bold text-white/60 uppercase tracking-widest border border-white/10 pointer-events-none flex items-center gap-2">
-            <i className="fas fa-expand"></i> {t.scale}: {Math.round(transform.k * 100)}%
-        </div>
-      </div>
     </div>
   );
 });

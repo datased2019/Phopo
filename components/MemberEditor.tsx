@@ -10,9 +10,13 @@ interface MemberEditorProps {
   onDelete: (id: string) => void;
   onClose: () => void;
   lang: Language;
+  isMe?: boolean;
+  onSetMe?: (id: string | null) => void;
 }
 
-const MemberEditor: React.FC<MemberEditorProps> = ({ member, members, onUpdate, onDelete, onClose, lang }) => {
+const MemberEditor: React.FC<MemberEditorProps> = ({ 
+  member, members, onUpdate, onDelete, onClose, lang, isMe, onSetMe 
+}) => {
   const t = translations[lang];
 
   const handleChange = (field: keyof FamilyMember, value: string) => {
@@ -166,6 +170,22 @@ const MemberEditor: React.FC<MemberEditorProps> = ({ member, members, onUpdate, 
             placeholder={t.bioPlaceholder}
           />
         </div>
+
+        {/* Set as Me Toggle - Moved below Bio */}
+        {onSetMe && (
+           <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl">
+              <div className="flex items-center gap-3">
+                <i className={`fas fa-star ${isMe ? 'text-yellow-400' : 'text-white/20'}`}></i>
+                <span className="text-xs font-bold uppercase tracking-widest text-white/60">{t.setAsMe}</span>
+              </div>
+              <button 
+                onClick={() => onSetMe(isMe ? null : member.id)}
+                className={`w-10 h-6 rounded-full p-1 transition-colors ${isMe ? 'bg-yellow-400' : 'bg-slate-700'}`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full transition-transform ${isMe ? 'translate-x-4' : 'translate-x-0'}`}></div>
+              </button>
+           </div>
+        )}
 
         {/* Delete Button */}
         <div className="pt-6 border-t border-white/5">

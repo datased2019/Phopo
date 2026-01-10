@@ -14,6 +14,7 @@ import { generateShareLink } from './services/persistenceService';
 const App: React.FC = () => {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiInput, setAiInput] = useState('');
@@ -46,6 +47,9 @@ const App: React.FC = () => {
         } else {
           const data = await api.getMembers();
           setMembers(data.length > 0 ? data : []);
+          
+          const storedMeId = localStorage.getItem('phopo_me_id');
+          if (storedMeId) setMeId(storedMeId);
         }
       } catch (e) { console.error("Initialization Failed", e); } finally { setIsLoading(false); }
     };
@@ -56,10 +60,14 @@ const App: React.FC = () => {
     if (!user || isViewingShared || members.length === 0) return;
     const timer = setTimeout(async () => {
       setIsSyncing(true);
-      try { await api.saveMembers(members); } catch (e) { console.error("Sync Error", e); } finally { setIsSyncing(false); }
+      try { 
+        await api.saveMembers(members); 
+        if (meId) localStorage.setItem('phopo_me_id', meId);
+        else localStorage.removeItem('phopo_me_id');
+      } catch (e) { console.error("Sync Error", e); } finally { setIsSyncing(false); }
     }, 1500);
     return () => clearTimeout(timer);
-  }, [members, user, isViewingShared]);
+  }, [members, user, isViewingShared, meId]);
 
   const handleLogin = async (u: User) => {
     const loggedUser = await api.login(u.email, u.provider);
@@ -74,6 +82,8 @@ const App: React.FC = () => {
     setUser(null);
     setIsViewingShared(false);
     setMembers([]);
+    setMeId(null);
+    localStorage.removeItem('phopo_me_id');
   };
 
   const handleShare = () => { setShareUrl(generateShareLink(members)); };
@@ -93,7 +103,9 @@ const App: React.FC = () => {
     if (!user) return;
     const newId = `m-self-${Date.now()}`;
     setMembers([{ id: newId, name: user.name, gender: 'male', photo: user.avatar, bio: lang === 'zh' ? '这是我。' : 'This is me.' }]);
+    setMeId(newId);
     setSelectedId(newId);
+    setTimeout(() => handleResetView(), 500);
   }, [user, lang]);
 
   const handleUpdateMember = useCallback((updated: FamilyMember) => {
@@ -116,8 +128,9 @@ const App: React.FC = () => {
   const handleDeleteMember = useCallback((id: string) => {
     if (!user) return;
     setMembers(prev => prev.filter(m => m.id !== id));
+    if (meId === id) setMeId(null);
     setSelectedId(null);
-  }, [user]);
+  }, [user, meId]);
 
   const handleAiParsing = async () => {
     if (!aiInput.trim() || !user) return;
@@ -129,27 +142,68 @@ const App: React.FC = () => {
         prev.forEach(m => nameToIdMap.set(m.name, m.id));
         const timestamp = Date.now();
         const newMembersToAdd: FamilyMember[] = [];
+
         parsedData.forEach((data, idx) => {
           if (data.name && !nameToIdMap.has(data.name)) {
             const newId = `ai-${timestamp}-${idx}`;
             nameToIdMap.set(data.name, newId);
-            newMembersToAdd.push({ id: newId, name: data.name, gender: (data.gender as any) || 'male', birthDate: data.birthDate, bio: data.bio });
+            newMembersToAdd.push({ 
+              id: newId, 
+              name: data.name, 
+              gender: (data.gender as any) || 'male', 
+              birthDate: data.birthDate, 
+              bio: data.bio 
+            });
           }
         });
+
         const allNodesBase = [...prev, ...newMembersToAdd];
-        const resolved = allNodesBase.map(member => {
+        let resolved = allNodesBase.map(member => {
           const aiUpdate = parsedData.find(d => d.name === member.name);
           if (!aiUpdate) return member;
+          
           const updatedMember = { ...member };
-          if (aiUpdate.fatherName) { const fId = nameToIdMap.get(aiUpdate.fatherName); if (fId) updatedMember.parentId1 = fId; }
-          if (aiUpdate.motherName) { const mId = nameToIdMap.get(aiUpdate.motherName); if (mId) updatedMember.parentId2 = mId; }
-          if (aiUpdate.spouseName) { const sId = nameToIdMap.get(aiUpdate.spouseName); if (sId) updatedMember.spouseId = sId; }
+          if (aiUpdate.gender) updatedMember.gender = aiUpdate.gender as any;
+          if (aiUpdate.birthDate) updatedMember.birthDate = aiUpdate.birthDate;
+          if (aiUpdate.bio) updatedMember.bio = aiUpdate.bio;
+
+          if (aiUpdate.fatherName) { 
+            const fId = nameToIdMap.get(aiUpdate.fatherName); 
+            if (fId) updatedMember.parentId1 = fId; 
+          }
+          if (aiUpdate.motherName) { 
+            const mId = nameToIdMap.get(aiUpdate.motherName); 
+            if (mId) updatedMember.parentId2 = mId; 
+          }
+          if (aiUpdate.spouseName) { 
+            const sId = nameToIdMap.get(aiUpdate.spouseName); 
+            if (sId) updatedMember.spouseId = sId; 
+          }
           return updatedMember;
         });
-        return resolved.map(member => {
-          if (!member.spouseId) { const p = resolved.find(m => m.spouseId === member.id); if (p) return { ...member, spouseId: p.id }; }
+
+        resolved = resolved.map(member => {
+          if (!member.spouseId) { 
+            const p = resolved.find(m => m.spouseId === member.id); 
+            if (p) return { ...member, spouseId: p.id }; 
+          }
           return member;
         });
+
+        resolved = resolved.map(member => {
+          const updated = { ...member };
+          if (updated.parentId1 && !updated.parentId2) {
+            const parent1 = resolved.find(m => m.id === updated.parentId1);
+            if (parent1 && parent1.spouseId) updated.parentId2 = parent1.spouseId;
+          }
+          else if (updated.parentId2 && !updated.parentId1) {
+            const parent2 = resolved.find(m => m.id === updated.parentId2);
+            if (parent2 && parent2.spouseId) updated.parentId1 = parent2.spouseId;
+          }
+          return updated;
+        });
+
+        return resolved;
       });
       setAiInput('');
     } catch (e) { console.error("AI Error:", e); } finally { setIsAiLoading(false); }
@@ -173,7 +227,6 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          {/* Theme Switcher */}
           <div className="relative">
              <button onClick={() => setShowThemeMenu(!showThemeMenu)} className={`flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-2xl text-[11px] font-bold border transition-all ${currentTheme === 'minimalist' ? 'bg-gray-100 border-gray-200 text-gray-600' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}>
                 <i className="fas fa-palette text-blue-400"></i>
@@ -208,23 +261,73 @@ const App: React.FC = () => {
       </header>
 
       <main className="flex-1 relative">
-        <TreeRenderer ref={treeRef} members={members} onMemberSelect={setSelectedId} selectedId={selectedId || undefined} lang={lang} onInitialize={handleCreateSelf} isReadOnly={isViewingShared} theme={currentTheme} />
+        <TreeRenderer 
+          ref={treeRef} 
+          members={members} 
+          onMemberSelect={setSelectedId} 
+          selectedId={selectedId || undefined} 
+          lang={lang} 
+          onInitialize={handleCreateSelf} 
+          isReadOnly={isViewingShared} 
+          theme={currentTheme} 
+          meId={meId}
+        />
+
+        {/* RESTRUCTURED BOTTOM BAR - UNIFIED HEIGHT */}
         {!isViewingShared && (
-          <div className="absolute left-6 bottom-32 sm:bottom-8 flex flex-col gap-4">
-            <button onClick={handleAddMember} className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl shadow-2xl flex items-center justify-center transition-all active:scale-90 group"><i className="fas fa-plus text-lg sm:text-xl transition-transform group-hover:rotate-90"></i></button>
-          </div>
-        )}
-        {!isViewingShared && (
-          <div className="absolute bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 w-full max-w-2xl px-4 sm:px-8">
-            <div className="relative bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-[24px] sm:rounded-[32px] p-1.5 sm:p-2 flex items-center gap-1 sm:gap-2 shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
-                <input type="text" value={aiInput} onChange={(e) => setAiInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAiParsing()} placeholder={t.aiPlaceholder} className="flex-1 bg-transparent border-none focus:outline-none text-white text-xs sm:text-sm px-4 placeholder:text-white/20" disabled={isAiLoading} />
-                <button onClick={handleAiParsing} disabled={isAiLoading || !aiInput.trim()} className="bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 text-white px-4 sm:px-8 py-2.5 sm:py-3.5 rounded-xl sm:rounded-2xl text-[9px] sm:text-[11px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95">{isAiLoading ? t.parsing : t.aiButton}</button>
+          <div className="absolute bottom-8 left-0 right-0 px-8 z-40 pointer-events-none">
+            <div className="max-w-4xl mx-auto flex items-end gap-4 pointer-events-auto">
+              
+              {/* Add Member Button - Unified Height */}
+              <button 
+                onClick={handleAddMember} 
+                className="h-16 w-16 bg-blue-600 hover:bg-blue-500 text-white rounded-[24px] shadow-2xl flex items-center justify-center transition-all active:scale-90 group shrink-0 border border-white/10"
+                title={t.addMember}
+              >
+                <i className="fas fa-plus text-xl transition-transform group-hover:rotate-90"></i>
+              </button>
+
+              {/* AI Chat Bar - Unified Height */}
+              <div className="flex-1">
+                <div className="h-16 bg-slate-900/80 backdrop-blur-2xl border border-white/10 rounded-[24px] p-2 flex items-center gap-2 shadow-[0_20px_40px_rgba(0,0,0,0.4)]">
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-600/10 shrink-0">
+                       <i className="fas fa-magic text-blue-400 text-xs"></i>
+                    </div>
+                    <input 
+                      type="text" 
+                      value={aiInput} 
+                      onChange={(e) => setAiInput(e.target.value)} 
+                      onKeyDown={(e) => e.key === 'Enter' && handleAiParsing()} 
+                      placeholder={t.aiPlaceholder} 
+                      className="flex-1 bg-transparent border-none focus:outline-none text-white text-sm px-2 placeholder:text-white/20" 
+                      disabled={isAiLoading} 
+                    />
+                    <button 
+                      onClick={handleAiParsing} 
+                      disabled={isAiLoading || !aiInput.trim()} 
+                      className="h-full px-8 bg-blue-600 hover:bg-blue-500 disabled:bg-white/5 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 shrink-0"
+                    >
+                      {isAiLoading ? t.parsing : t.aiButton}
+                    </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </main>
 
-      {selectedMember && (<MemberEditor member={selectedMember} members={members} onUpdate={handleUpdateMember} onDelete={handleDeleteMember} onClose={() => setSelectedId(null)} lang={lang} />)}
+      {selectedMember && (
+        <MemberEditor 
+          member={selectedMember} 
+          members={members} 
+          onUpdate={handleUpdateMember} 
+          onDelete={handleDeleteMember} 
+          onClose={() => setSelectedId(null)} 
+          lang={lang} 
+          isMe={meId === selectedMember.id}
+          onSetMe={setMeId}
+        />
+      )}
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={handleLogin} lang={lang} />}
       {shareUrl && <ShareModal url={shareUrl} onClose={() => setShareUrl(null)} lang={lang} />}
     </div>

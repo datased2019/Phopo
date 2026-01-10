@@ -17,14 +17,18 @@ export const parseFamilyText = async (text: string): Promise<ParsedFamilyMember[
   
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Analyze the text and extract family members. For each person, determine their gender and family ties. 
-    Use the names found in the text for fatherName, motherName, and spouseName to describe relationships.
+    contents: `Analyze the family-related text and extract members with their attributes and relationships. 
     
-    Example: "Zhang San has a son named Zhang Si. Zhang San's wife is Li Hua."
+    Strict Requirements:
+    1. Extract 'name', 'gender' (male/female/other), 'birthDate' (YYYY-MM-DD), and 'bio'.
+    2. Normalize all dates to YYYY-MM-DD. If only a year is mentioned, use YYYY-01-01.
+    3. Use 'fatherName', 'motherName', and 'spouseName' strings to define connections based on the text.
+    4. If the text provides details for an existing person or describes a new one, capture all available info.
+    
+    Example Input: "Zhang San was born on April 11, 1985. His wife is Li Hua."
     Output: [
-      {"name": "Zhang San", "gender": "male", "spouseName": "Li Hua"},
-      {"name": "Li Hua", "gender": "female", "spouseName": "Zhang San"},
-      {"name": "Zhang Si", "gender": "male", "fatherName": "Zhang San", "motherName": "Li Hua"}
+      {"name": "Zhang San", "gender": "male", "birthDate": "1985-04-11", "spouseName": "Li Hua", "bio": "Born on April 11, 1985."},
+      {"name": "Li Hua", "gender": "female", "spouseName": "Zhang San"}
     ]
 
     Text to parse: "${text}"`,
@@ -37,13 +41,13 @@ export const parseFamilyText = async (text: string): Promise<ParsedFamilyMember[
           properties: {
             name: { type: Type.STRING },
             gender: { type: Type.STRING, description: "male, female, or other" },
-            birthDate: { type: Type.STRING, description: "YYYY-MM-DD format" },
-            bio: { type: Type.STRING },
-            fatherName: { type: Type.STRING, description: "The name of this person's father if mentioned" },
-            motherName: { type: Type.STRING, description: "The name of this person's mother if mentioned" },
-            spouseName: { type: Type.STRING, description: "The name of this person's husband or wife if mentioned" }
+            birthDate: { type: Type.STRING, description: "Strictly YYYY-MM-DD format" },
+            bio: { type: Type.STRING, description: "Personal story or notes" },
+            fatherName: { type: Type.STRING, description: "Name of the father" },
+            motherName: { type: Type.STRING, description: "Name of the mother" },
+            spouseName: { type: Type.STRING, description: "Name of the spouse" }
           },
-          required: ["name", "gender"]
+          required: ["name"]
         }
       }
     }

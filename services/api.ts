@@ -8,6 +8,7 @@ import { FamilyMember, User } from '../types';
 
 const STORAGE_KEY_MEMBERS = 'phopo_db_members';
 const STORAGE_KEY_AUTH = 'phopo_db_session';
+const STORAGE_KEY_ME = 'phopo_me_id';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -51,11 +52,10 @@ class PhopoAPI {
   }
 
   async saveMembers(members: FamilyMember[]): Promise<void> {
-    // In a real backend, this would check JWT
     const user = await this.getCurrentUser();
     if (!user) throw new Error("Unauthorized");
     
-    await sleep(1000); // Simulate network latency
+    await sleep(500); // Simulate network latency
     localStorage.setItem(STORAGE_KEY_MEMBERS, JSON.stringify(members));
   }
 

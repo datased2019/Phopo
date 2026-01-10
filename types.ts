@@ -37,4 +37,5 @@ export interface User {
 export interface AppState {
   members: FamilyMember[];
   user: User | null;
+  meId?: string;
 }
