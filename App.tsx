@@ -406,7 +406,7 @@ const App: React.FC = () => {
         />
       )}
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} onLogin={handleLogin} lang={lang} />}
-      {shareUrl && <ShareModal url={shareUrl} onClose={() => setShareUrl(null)} lang={lang} />}
+      {shareUrl && <ShareModal url={shareUrl} members={members} onClose={() => setShareUrl(null)} lang={lang} />}
     </div>
   );
 };
