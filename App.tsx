@@ -144,16 +144,19 @@ const App: React.FC = () => {
         prev.forEach(m => nameToIdMap.set(m.name, m.id));
         
         const timestamp = Date.now();
-        let nextMembers = [...prev];
+        // Use a working copy of members
+        let workingMembers = [...prev];
 
-        // 1. Create or Identify individuals
+        // --- PHASE 1: CREATE OR UPDATE NODES ---
         parsedData.forEach((data, idx) => {
           if (!data.name) return;
           const trimmedName = data.name.trim();
+          
           if (!nameToIdMap.has(trimmedName)) {
+            // Create new
             const newId = `ai-${timestamp}-${idx}`;
             nameToIdMap.set(trimmedName, newId);
-            nextMembers.push({
+            workingMembers.push({
               id: newId,
               name: trimmedName,
               gender: (data.gender as any) || 'male',
@@ -161,84 +164,114 @@ const App: React.FC = () => {
               bio: data.bio
             });
           } else {
-            // Update basic info for existing members
-            const mIdx = nextMembers.findIndex(m => m.name === trimmedName);
-            if (mIdx !== -1) {
-              if (data.gender) nextMembers[mIdx].gender = data.gender as any;
-              if (data.birthDate) nextMembers[mIdx].birthDate = data.birthDate;
-              if (data.bio) nextMembers[mIdx].bio = data.bio;
-            }
+            // Update existing (merge info)
+            const id = nameToIdMap.get(trimmedName)!;
+            workingMembers = workingMembers.map(m => {
+              if (m.id !== id) return m;
+              return {
+                ...m,
+                gender: data.gender ? (data.gender as any) : m.gender,
+                birthDate: data.birthDate || m.birthDate,
+                bio: data.bio ? (m.bio ? `${m.bio} ${data.bio}` : data.bio) : m.bio
+              };
+            });
           }
         });
 
-        // 2. Resolve Direct Relationships from AI output
-        nextMembers = nextMembers.map(m => {
+        // --- PHASE 2: APPLY EXPLICIT RELATIONSHIPS ---
+        workingMembers = workingMembers.map(m => {
           const aiData = parsedData.find(d => d.name?.trim() === m.name);
           if (!aiData) return m;
 
           const updated = { ...m };
-          
-          // Spouse resolution
+
+          // 2a. Explicit Spouse
           if (aiData.spouseName) {
             const sId = nameToIdMap.get(aiData.spouseName.trim());
             if (sId) updated.spouseId = sId;
           }
 
-          // Parent resolution from parentNames
+          // 2b. Explicit Parents
           if (aiData.parentNames && aiData.parentNames.length > 0) {
             aiData.parentNames.forEach(pName => {
               const pId = nameToIdMap.get(pName.trim());
               if (!pId) return;
-
-              const parentObj = nextMembers.find(pm => pm.id === pId);
-              if (!parentObj) return;
-
-              if (parentObj.gender === 'male') updated.parentId1 = pId;
-              else if (parentObj.gender === 'female') updated.parentId2 = pId;
-              else {
-                if (!updated.parentId1) updated.parentId1 = pId;
-                else if (!updated.parentId2) updated.parentId2 = pId;
+              const parentObj = workingMembers.find(pm => pm.id === pId);
+              
+              // Intelligent Parent Slotting based on Gender
+              if (parentObj?.gender === 'male') {
+                updated.parentId1 = pId;
+              } else if (parentObj?.gender === 'female') {
+                updated.parentId2 = pId;
+              } else {
+                // Fallback for 'other' or unknown gender: fill first available
+                if (!updated.parentId1 && updated.parentId2 !== pId) updated.parentId1 = pId;
+                else if (!updated.parentId2 && updated.parentId1 !== pId) updated.parentId2 = pId;
               }
             });
           }
           return updated;
         });
 
-        // 3. Relational Inference Engine
-        // Pass A: Auto-link spouses as second parents for existing children
-        nextMembers = nextMembers.map(child => {
-          const updated = { ...child };
+        // --- PHASE 3: COMPREHENSIVE INFERENCE ENGINE (The "Triangle" Logic) ---
+        // Run this multiple times to propagate changes (though 1-2 passes usually suffice)
+        // We do 2 passes to ensure bidirectional consistency.
+        for (let pass = 0; pass < 2; pass++) {
           
-          // If child has Parent 1 but not Parent 2, check if Parent 1 has a spouse
-          if (updated.parentId1 && !updated.parentId2) {
-            const p1 = nextMembers.find(m => m.id === updated.parentId1);
-            if (p1?.spouseId) {
-              const spouse = nextMembers.find(m => m.id === p1.spouseId);
-              if (spouse?.gender === 'female') updated.parentId2 = spouse.id;
+          // 3a. Ensure Spouse Symmetry
+          // If A.spouse = B, make sure B.spouse = A
+          workingMembers = workingMembers.map(m => {
+            if (m.spouseId) {
+              const spouse = workingMembers.find(s => s.id === m.spouseId);
+              if (spouse && spouse.spouseId !== m.id) {
+                // Return unchanged here, handle the update in the spouse's iteration or map
+                // Actually, let's just force symmetry in a separate loop or handle it here
+              }
             }
-          }
-
-          // If child has Parent 2 but not Parent 1, check if Parent 2 has a spouse
-          if (updated.parentId2 && !updated.parentId1) {
-            const p2 = nextMembers.find(m => m.id === updated.parentId2);
-            if (p2?.spouseId) {
-              const spouse = nextMembers.find(m => m.id === p2.spouseId);
-              if (spouse?.gender === 'male') updated.parentId1 = spouse.id;
+            // Better approach: Re-map everything
+            if (!m.spouseId) {
+               const whoClaimsMe = workingMembers.find(other => other.spouseId === m.id);
+               if (whoClaimsMe) return { ...m, spouseId: whoClaimsMe.id };
             }
-          }
-          return updated;
-        });
+            return m;
+          });
 
-        // Pass B: Bi-directional spouse safety (ensure spouse links are mutual)
-        nextMembers = nextMembers.map(m => {
-          if (!m.spouseId) {
-            const partner = nextMembers.find(other => other.spouseId === m.id);
-            if (partner) return { ...m, spouseId: partner.id };
-          }
-          return m;
-        });
+          // 3b. Triangle Completion (Child <-> Parent <-> Parent's Spouse)
+          // This covers both:
+          // - Adding a child to a couple (child gets 2nd parent)
+          // - Adding a spouse to a parent (existing children get new parent)
+          workingMembers = workingMembers.map(child => {
+            let updated = { ...child };
+            let changed = false;
 
-        return nextMembers;
+            const p1 = workingMembers.find(p => p.id === updated.parentId1);
+            const p2 = workingMembers.find(p => p.id === updated.parentId2);
+
+            // Case: Have P1, Missing P2. P1 has a spouse. Set P2 = P1.spouse
+            if (p1 && p1.spouseId && !updated.parentId2) {
+              // Verify spouse exists
+              const spouse = workingMembers.find(s => s.id === p1.spouseId);
+              // Avoid circular self-reference (rare but possible in buggy data)
+              if (spouse && spouse.id !== updated.id) {
+                updated.parentId2 = spouse.id;
+                changed = true;
+              }
+            }
+
+            // Case: Have P2, Missing P1. P2 has a spouse. Set P1 = P2.spouse
+            if (p2 && p2.spouseId && !updated.parentId1) {
+              const spouse = workingMembers.find(s => s.id === p2.spouseId);
+              if (spouse && spouse.id !== updated.id) {
+                updated.parentId1 = spouse.id;
+                changed = true;
+              }
+            }
+
+            return changed ? updated : child;
+          });
+        }
+
+        return workingMembers;
       });
 
       setAiInput('');
@@ -262,7 +295,15 @@ const App: React.FC = () => {
             <div className="hidden xs:block"><h1 className="text-lg sm:text-xl font-black tracking-tighter leading-none uppercase">{t.appName}</h1><p className="text-[8px] sm:text-[10px] font-bold opacity-30 uppercase tracking-[0.2em] mt-1">{t.subtitle}</p></div>
           </div>
           <div className="hidden lg:flex items-center bg-white/5 rounded-2xl border border-white/10 p-1">
-            {(['zh', 'en', 'ja'] as Language[]).map(l => (<button key={l} onClick={() => setLang(l)} className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${lang === l ? 'bg-blue-600 text-white' : 'opacity-40 hover:opacity-100'}`}>{l}</button>))}
+            {(['zh', 'en', 'ja'] as Language[]).map(l => (
+              <button 
+                key={l} 
+                onClick={() => setLang(l)} 
+                className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${lang === l ? 'bg-blue-600 text-white' : 'opacity-40 hover:opacity-100'}`}
+              >
+                {{ zh: '中文', en: 'English', ja: '日本語' }[l]}
+              </button>
+            ))}
           </div>
         </div>
 

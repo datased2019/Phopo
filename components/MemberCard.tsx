@@ -19,64 +19,124 @@ const MemberCard: React.FC<MemberCardProps> = ({
 }) => {
   const isMale = member.gender === 'male';
   
+  // Helper to format year or return placeholder
+  const getDisplayYear = () => {
+    if (!member.birthDate) return '----';
+    const str = member.birthDate.toString().trim();
+    if (str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined' || str === '') return '----';
+    return str.split('-')[0];
+  };
+
   // Theme configuration mapping
+  // We use shadow rings instead of thin borders for better anti-aliasing in 3D
   const themeStyles = {
     standard: {
-      card: `backdrop-blur-md border ${isMe ? 'border-yellow-400/80 shadow-[0_0_20px_rgba(250,204,21,0.4)]' : 'border-white/20'} hover:bg-white/20 ${isSelected ? 'bg-blue-600/30 border-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.5)]' : 'bg-white/10'}`,
+      // Dark Glass with distinct edges
+      card: `backdrop-blur-xl ${isMe ? 'bg-slate-900/90 ring-2 ring-yellow-400 shadow-[0_0_30px_rgba(250,204,21,0.3)]' : isSelected ? 'bg-blue-900/90 ring-2 ring-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.4)]' : 'bg-slate-900/80 ring-1 ring-white/30 hover:bg-slate-800/90 hover:ring-white/50'}`,
       shape: 'rounded-2xl',
-      avatarBorder: isMale ? 'border-blue-500/50 bg-blue-500/10' : 'border-pink-500/50 bg-pink-500/10',
-      textColor: 'text-white',
-      subTextColor: 'text-white/40',
-      genderBadge: isMale ? 'bg-blue-500' : 'bg-pink-500',
+      avatarBorder: isMale ? 'ring-2 ring-blue-500 bg-blue-950' : 'ring-2 ring-pink-500 bg-pink-950',
+      textColor: 'text-white font-bold',
+      subTextColor: 'text-blue-200/60 font-semibold',
+      genderBadge: isMale ? 'bg-blue-500 text-white' : 'bg-pink-500 text-white',
       meBadge: 'bg-yellow-400 text-black',
-      tooltip: 'bg-black/60 border-white/10'
+      depthColor: 'bg-slate-950',
+      tooltip: 'bg-slate-900 border-white/20'
     },
     minimalist: {
-      card: `bg-white border ${isMe ? 'border-black ring-4 ring-black/5 shadow-xl' : isSelected ? 'border-black ring-2 ring-black/5' : 'border-gray-100 hover:border-gray-300'}`,
-      shape: 'rounded-none',
-      avatarBorder: 'border-gray-200 bg-gray-50',
-      textColor: 'text-gray-900',
-      subTextColor: 'text-gray-400',
-      genderBadge: isMale ? 'bg-blue-400' : 'bg-pink-400',
+      // High contrast white paper look
+      card: `bg-white ${isMe ? 'ring-4 ring-black shadow-2xl' : isSelected ? 'ring-4 ring-blue-600' : 'ring-2 ring-gray-900 hover:ring-4'}`,
+      shape: 'rounded-lg',
+      avatarBorder: 'ring-2 ring-gray-100 bg-gray-50',
+      textColor: 'text-black font-extrabold tracking-tight',
+      subTextColor: 'text-gray-500 font-bold',
+      genderBadge: isMale ? 'bg-black text-white' : 'bg-gray-200 text-black',
       meBadge: 'bg-black text-white',
-      tooltip: 'bg-white border-gray-200 shadow-xl text-gray-800'
+      depthColor: 'bg-gray-300',
+      tooltip: 'bg-white border-black text-black shadow-[8px_8px_0px_rgba(0,0,0,1)]'
+    },
+    cartoon: {
+      // Pop art colors
+      card: `bg-yellow-50 ${isMe ? 'ring-4 ring-red-500 shadow-[4px_4px_0px_rgba(0,0,0,1)]' : isSelected ? 'ring-4 ring-blue-500 shadow-[4px_4px_0px_rgba(0,0,0,1)]' : 'ring-4 ring-black hover:translate-y-[-2px] shadow-[4px_4px_0px_rgba(0,0,0,1)]'}`,
+      shape: 'rounded-xl',
+      avatarBorder: 'ring-2 ring-black bg-white',
+      textColor: 'text-black font-black',
+      subTextColor: 'text-black/60 font-bold',
+      genderBadge: isMale ? 'bg-blue-400 text-black border border-black' : 'bg-pink-400 text-black border border-black',
+      meBadge: 'bg-red-500 text-white border-2 border-black',
+      depthColor: 'bg-black', // Cartoon usually doesn't use the depth blur layer, but solid shadow
+      tooltip: 'bg-yellow-100 border-2 border-black text-black'
     },
     cyberpunk: {
-      card: `bg-black/80 border ${isMe ? 'border-yellow-400 shadow-[0_0_20px_#facc15]' : isSelected ? 'border-cyan-400 shadow-[0_0_15px_#22d3ee]' : 'border-magenta-500 shadow-[0_0_10px_#d946ef] hover:border-white'}`,
+      // Neon Glows
+      card: `bg-black/90 ${isMe ? 'border-2 border-yellow-400 shadow-[0_0_20px_#facc15,inset_0_0_20px_rgba(250,204,21,0.2)]' : isSelected ? 'border-2 border-cyan-400 shadow-[0_0_20px_#22d3ee,inset_0_0_20px_rgba(34,211,238,0.2)]' : 'border-2 border-fuchsia-600 shadow-[0_0_10px_#d946ef] hover:border-white hover:shadow-[0_0_20px_white]'}`,
+      shape: 'rounded-none clip-path-polygon', // We simulate angular cuts via rounded-none for now
+      avatarBorder: 'border-2 border-cyan-500 bg-black',
+      textColor: 'text-cyan-400 font-mono font-bold tracking-wider',
+      subTextColor: 'text-fuchsia-500 font-mono font-bold text-[10px]',
+      genderBadge: 'bg-yellow-400 text-black font-bold',
+      meBadge: 'bg-yellow-400 text-black font-bold box-decoration-clone',
+      depthColor: 'bg-fuchsia-900/50',
+      tooltip: 'bg-black border border-cyan-500 text-cyan-500 shadow-[0_0_20px_rgba(34,211,238,0.3)]'
+    },
+    blueprint: {
+      // Technical drawing
+      card: `bg-blue-900 ${isMe ? 'border-2 border-white border-dashed' : isSelected ? 'border-2 border-white' : 'border border-white/60 hover:bg-blue-800'}`,
       shape: 'rounded-sm',
-      avatarBorder: 'border-cyan-500/50 bg-cyan-950',
-      textColor: 'text-cyan-400 font-mono',
-      subTextColor: 'text-magenta-400 text-[8px]',
-      genderBadge: 'bg-yellow-400 text-black',
-      meBadge: 'bg-yellow-400 text-black',
-      tooltip: 'bg-black/90 border-cyan-400/50 shadow-[0_0_30px_rgba(34,211,238,0.2)]'
+      avatarBorder: 'border border-white/50 bg-blue-950',
+      textColor: 'text-white font-mono font-bold',
+      subTextColor: 'text-white/70 font-mono',
+      genderBadge: 'bg-white text-blue-900',
+      meBadge: 'bg-white text-blue-900',
+      depthColor: 'bg-blue-950',
+      tooltip: 'bg-blue-900 border border-white text-white font-mono'
+    },
+    nature: {
+      card: `backdrop-blur-xl ${isMe ? 'bg-emerald-900/90 ring-2 ring-yellow-400' : isSelected ? 'bg-emerald-800/90 ring-2 ring-emerald-400' : 'bg-emerald-950/80 ring-1 ring-emerald-400/30 hover:bg-emerald-900/90'}`,
+      shape: 'rounded-3xl',
+      avatarBorder: 'ring-2 ring-emerald-400/50 bg-emerald-950',
+      textColor: 'text-emerald-50 font-bold',
+      subTextColor: 'text-emerald-200/60 font-semibold',
+      genderBadge: 'bg-emerald-600 text-white',
+      meBadge: 'bg-yellow-500 text-white',
+      depthColor: 'bg-emerald-950',
+      tooltip: 'bg-emerald-950 border-emerald-500/30'
+    },
+    royal: {
+      card: `bg-purple-950 ${isMe ? 'ring-2 ring-yellow-400 shadow-xl' : isSelected ? 'ring-2 ring-purple-400' : 'ring-1 ring-yellow-600/40 hover:ring-yellow-500'}`,
+      shape: 'rounded-xl',
+      avatarBorder: 'ring-2 ring-yellow-500 bg-purple-900',
+      textColor: 'text-yellow-50 font-serif font-bold tracking-wide',
+      subTextColor: 'text-yellow-500/80 font-serif',
+      genderBadge: 'bg-purple-600 text-yellow-400 border border-yellow-500',
+      meBadge: 'bg-yellow-500 text-purple-900 font-serif',
+      depthColor: 'bg-purple-950',
+      tooltip: 'bg-purple-950 border border-yellow-500/50'
     }
-    // Fallback logic handled below
   };
 
   const style = (themeStyles as any)[theme] || themeStyles.standard;
 
   return (
     <div 
-      className={`absolute node-card-3d cursor-pointer group select-none transition-all duration-500 ${isMe || isSelected ? 'z-50' : 'z-10 hover:z-50'}`}
+      className={`absolute node-card-3d cursor-pointer group select-none ${isMe || isSelected ? 'z-50' : 'z-10 hover:z-50'}`}
       style={{ 
         left: x, 
         top: y,
-        width: '200px',
-        height: '80px',
+        width: '220px', // Slightly wider for better text flow
+        height: '84px',
         transform: `translate3d(-50%, -50%, ${isMe ? '20px' : '0px'})`,
       }}
       onClick={() => onClick(member.id)}
     >
-      {/* 3D Depth Layer */}
+      {/* 3D Depth Layer (The "Side" of the card) */}
       {theme !== 'minimalist' && theme !== 'blueprint' && (
-        <div className={`absolute inset-0 opacity-50 blur-sm translate-z-[-10px] translate-x-1 translate-y-1 ${style.shape} ${theme === 'cartoon' ? 'bg-black' : isMe ? 'bg-yellow-600/20' : 'bg-slate-800'}`}></div>
+        <div className={`absolute inset-0 opacity-100 translate-z-[-6px] translate-x-[6px] translate-y-[6px] ${style.shape} ${style.depthColor} transition-colors duration-300`}></div>
       )}
       
       {/* Me Badge */}
       {isMe && (
         <div className={`
-          absolute -top-3 -right-3 z-50 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-xl border border-black/10 transition-transform group-hover:scale-110
+          absolute -top-3 -right-3 z-50 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg transition-transform group-hover:scale-110
           ${style.meBadge}
         `}>
           {meLabel}
@@ -85,70 +145,71 @@ const MemberCard: React.FC<MemberCardProps> = ({
 
       {/* --- Hover Bio Tooltip --- */}
       <div className={`
-        absolute left-[105%] top-1/2 -translate-y-1/2 ml-4 w-72 p-5 
-        backdrop-blur-2xl border rounded-3xl shadow-2xl 
+        absolute left-[100%] top-0 ml-6 w-72 p-5 
+        rounded-2xl shadow-2xl 
         opacity-0 pointer-events-none translate-x-4
         group-hover:opacity-100 group-hover:translate-x-0 group-hover:pointer-events-auto
-        transition-all duration-300 ease-out z-[100]
-        ${style.tooltip || 'bg-black/70 border-white/10 text-white'}
+        transition-all duration-200 ease-out z-[100]
+        border backdrop-blur-3xl
+        ${style.tooltip || 'bg-black/90 border-white/10 text-white'}
       `}>
-        <div className="flex items-center gap-2 mb-3">
-          <div className={`w-1 h-4 rounded-full ${isMale ? 'bg-blue-400' : 'bg-pink-400'}`}></div>
-          <span className="text-xs font-black uppercase tracking-widest opacity-40">{member.name}</span>
+        <div className="flex items-center gap-3 mb-3">
+          <div className={`w-1 h-5 rounded-full ${isMale ? 'bg-blue-400' : 'bg-pink-400'}`}></div>
+          <span className="text-sm font-black uppercase tracking-widest opacity-80">{member.name}</span>
         </div>
         <div className="max-h-48 overflow-y-auto custom-scrollbar">
-          <p className="text-sm leading-relaxed font-medium">
+          <p className="text-sm leading-relaxed font-medium opacity-90">
             {member.bio || (
-              <span className="opacity-30 italic font-normal">
+              <span className="opacity-50 italic font-normal">
                 {member.gender === 'male' ? '这位先生' : '这位女士'} 暂时没有留下文字记录，正在等待你书写家园的故事。
               </span>
             )}
           </p>
         </div>
-        {member.birthDate && (
-          <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between opacity-50">
+        {getDisplayYear() !== '----' && (
+          <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between opacity-60">
             <span className="text-[10px] font-bold uppercase tracking-tighter">Born</span>
-            <span className="text-[10px] font-mono">{member.birthDate}</span>
+            <span className="text-xs font-mono font-bold">{member.birthDate}</span>
           </div>
         )}
       </div>
 
       {/* Main Surface */}
       <div className={`
-        relative h-full w-full p-3 flex items-center gap-3 transition-all duration-300 transform-style-3d
+        relative h-full w-full p-3.5 flex items-center gap-4 transition-all duration-300
         ${style.card} ${style.shape}
       `}>
         {/* Avatar Container */}
         <div className={`
-          relative w-14 h-14 flex items-center justify-center shrink-0 overflow-hidden shadow-inner transition-all
-          ${style.avatarBorder} ${style.shape}
+          relative w-14 h-14 flex items-center justify-center shrink-0 overflow-hidden shadow-sm transition-all
+          ${style.avatarBorder} ${style.shape} ${theme === 'standard' ? 'rounded-xl' : ''}
         `}>
           {member.photo ? (
-            <img src={member.photo} className="w-full h-full object-cover transition-transform group-hover:scale-125" alt={member.name} />
+            <img src={member.photo} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={member.name} />
           ) : (
-            <i className={`fas ${isMale ? 'fa-user' : 'fa-user-nurse'} text-xl opacity-60`}></i>
+            <i className={`fas ${isMale ? 'fa-user' : 'fa-user-nurse'} text-2xl opacity-70`}></i>
           )}
           
           <div className={`
-            absolute bottom-0 right-0 w-4 h-4 rounded-full flex items-center justify-center border border-black/10
+            absolute bottom-0 right-0 w-5 h-5 rounded-full flex items-center justify-center shadow-md
             ${style.genderBadge}
           `}>
-             <i className={`fas ${isMale ? 'fa-mars' : 'fa-venus'} text-[8px] text-white`}></i>
+             <i className={`fas ${isMale ? 'fa-mars' : 'fa-venus'} text-[10px]`}></i>
           </div>
         </div>
 
         {/* Info */}
-        <div className="flex-1 overflow-hidden">
-          <h3 className={`font-bold text-sm truncate tracking-tight ${style.textColor}`}>{member.name}</h3>
-          <p className={`text-[9px] font-black uppercase tracking-[0.15em] mt-0.5 ${style.subTextColor}`}>
-            {member.birthDate ? member.birthDate.split('-')[0] : '????'}
+        <div className="flex-1 overflow-hidden min-w-0">
+          <h3 className={`text-base truncate ${style.textColor}`}>{member.name}</h3>
+          <p className={`text-[10px] uppercase tracking-[0.15em] mt-1 ${style.subTextColor}`}>
+            {getDisplayYear()}
           </p>
         </div>
 
         {/* Edit Hint Icon */}
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="w-5 h-5 bg-black/5 rounded-full flex items-center justify-center">
-            <i className={`fas fa-pencil text-[8px] opacity-40 ${style.textColor}`}></i>
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${theme === 'minimalist' ? 'bg-gray-100' : 'bg-white/10'}`}>
+            <i className={`fas fa-pencil text-[10px] opacity-60 ${style.textColor}`}></i>
           </div>
         </div>
       </div>

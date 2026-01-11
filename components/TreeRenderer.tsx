@@ -249,35 +249,49 @@ const TreeRenderer = forwardRef<TreeRendererRef, TreeRendererProps>(({
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(to right, #333 1px, transparent 1px), linear-gradient(to bottom, #333 1px, transparent 1px)', backgroundSize: '80px 80px' }}></div>
       )}
 
-      {/* VIEW CONTROLS - TOP LEFT - IMPROVED ALIGNMENT */}
-      <div className="absolute top-24 left-8 flex flex-col gap-2 z-30 animate-in fade-in slide-in-from-left-4 duration-500 w-32">
-        {/* MODE TOGGLE - HORIZONTAL */}
-        <div className="bg-black/40 backdrop-blur-2xl border border-white/10 p-1 rounded-2xl flex flex-row gap-1 shadow-2xl w-full">
+      {/* VIEW CONTROLS - TOP LEFT - RE-DESIGNED */}
+      <div className="absolute top-28 left-6 sm:left-8 flex flex-col gap-3 z-30 animate-in fade-in slide-in-from-left-4 duration-500 w-40">
+        {/* MODE TOGGLE */}
+        <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 p-1.5 rounded-2xl flex flex-row gap-1 shadow-2xl w-full group hover:border-white/20 transition-all">
           <button 
             onClick={() => setInteractionMode('pan')} 
-            className={`flex-1 h-10 rounded-xl flex items-center justify-center gap-2 transition-all ${interactionMode === 'pan' ? 'bg-blue-600 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+            className={`flex-1 h-9 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 ${interactionMode === 'pan' ? 'bg-blue-600 text-white shadow-lg ring-1 ring-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
             title={t.panMode}
           >
-            <i className="fas fa-arrows-alt text-[10px]"></i>
-            <span className="text-[9px] font-black uppercase tracking-tighter">{t.panMode}</span>
+            <i className={`fas fa-hand-paper text-[10px] ${interactionMode === 'pan' ? 'animate-pulse' : ''}`}></i>
+            <span className="text-[9px] font-black uppercase tracking-wider">{t.panMode}</span>
           </button>
           <button 
             onClick={() => setInteractionMode('rotate')} 
-            className={`flex-1 h-10 rounded-xl flex items-center justify-center gap-2 transition-all ${interactionMode === 'rotate' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
+            className={`flex-1 h-9 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 ${interactionMode === 'rotate' ? 'bg-indigo-600 text-white shadow-lg ring-1 ring-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'}`}
             title={t.rotateMode}
           >
-            <i className="fas fa-sync-alt text-[10px]"></i>
-            <span className="text-[9px] font-black uppercase tracking-tighter">{t.rotateMode}</span>
+            <i className={`fas fa-cube text-[10px] ${interactionMode === 'rotate' ? 'animate-pulse' : ''}`}></i>
+            <span className="text-[9px] font-black uppercase tracking-wider">{t.rotateMode}</span>
           </button>
         </div>
         
-        {/* SCALE DISPLAY - MATCHED WIDTH */}
-        <div className="bg-black/40 backdrop-blur-xl border border-white/10 px-4 h-10 rounded-2xl flex items-center justify-between shadow-xl border-l-4 border-l-blue-500 w-full">
-          <div className="flex items-center gap-2">
-            <i className="fas fa-expand text-[10px] text-blue-400"></i>
-            <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">{t.scale}</span>
-          </div>
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">{Math.round(transform.k * 100)}%</span>
+        {/* SCALE DISPLAY */}
+        <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 p-1.5 rounded-2xl flex items-center justify-between shadow-2xl w-full h-12 group hover:border-white/20 transition-all">
+           <div className="flex items-center gap-3 px-2">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors duration-300 ${interactionMode === 'pan' ? 'bg-blue-500/10' : 'bg-indigo-500/10'}`}>
+                <i className={`fas fa-search-plus text-xs ${interactionMode === 'pan' ? 'text-blue-400' : 'text-indigo-400'}`}></i>
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest mb-0.5">{t.scale}</span>
+                <span className="text-xs font-black text-white font-mono tracking-wider">{Math.round(transform.k * 100)}%</span>
+              </div>
+           </div>
+           
+           {/* Visual Indicator/Mini-bar */}
+           <div className="h-full py-2 pr-2">
+              <div className="h-full w-1 bg-white/5 rounded-full overflow-hidden">
+                <div 
+                    className={`w-full rounded-full transition-all duration-300 ${interactionMode === 'pan' ? 'bg-blue-500' : 'bg-indigo-500'}`}
+                    style={{ height: `${Math.min(transform.k * 25, 100)}%` }}
+                ></div>
+              </div>
+           </div>
         </div>
       </div>
 

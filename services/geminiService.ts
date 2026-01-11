@@ -15,30 +15,26 @@ export const parseFamilyText = async (text: string, existingMembers: FamilyMembe
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const contextStr = existingMembers.length > 0 
-    ? `Current Tree Context: ${existingMembers.map(m => `${m.name} (${m.gender})`).join(', ')}.`
+    ? `Current Tree Context (Names/IDs): ${existingMembers.map(m => `${m.name} (${m.gender}, id:${m.id})`).join(', ')}.`
     : "The tree is currently empty.";
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
-    contents: `Task: Extract family members and their relationships from text into JSON.
-    
+    contents: `Task: Extract family members and relationships from text to update a family tree.
+
     ${contextStr}
 
-    Critical Rules for Relationship Extraction:
-    1. Identify EVERY person. For each: name, gender (male/female), birthDate (YYYY-MM-DD), and bio.
-    2. Infer gender strictly: "wife/wife/daughter" -> female; "husband/son/father" -> male.
-    3. Relationships: 
-       - If text says "A has a son B", B's parentNames MUST include "A".
-       - If text says "A has a wife B", set A's spouseName to B AND B's spouseName to A.
-       - Do not worry about "father" or "mother" labels, just use 'parentNames' array.
-    4. Support incremental updates: If "Zhang San" exists and text says "Zhang San has a son Zhang Xiao", output both names and the link.
-    5. Dates: Use YYYY-MM-DD. Normalize "Jan 12 2018" or "2018年1月12日".
-
-    Example: "Xiao Hu has a son Hu Shu, born in 2018."
-    Output: [
-      {"name": "Xiao Hu", "gender": "male"},
-      {"name": "Hu Shu", "gender": "male", "birthDate": "2018-01-01", "parentNames": ["Xiao Hu"]}
-    ]
+    CRITICAL RULES:
+    1. **Identify Everyone**: Extract name, gender (infer strictly from terms like son/daughter/wife/husband), birthDate, and bio.
+    2. **Implicit Relationships**: 
+       - If "A is B's son", return A with parentNames=["B"].
+       - If "A is B's wife", return A with spouseName="B" AND B with spouseName="A".
+       - If "A is B's brother", infer that A shares B's parents.
+    3. **Context Matching**: If a name in the text matches a name in "Current Tree Context" exactly, use that existing name.
+    4. **Gender Inference**: 
+       - "Wife", "Mother", "Daughter", "Grandma", "Aunt" -> female
+       - "Husband", "Father", "Son", "Grandpa", "Uncle" -> male
+    5. **Output Structure**: Return a flat array of objects.
 
     Text to process: "${text}"`,
     config: {
@@ -55,9 +51,9 @@ export const parseFamilyText = async (text: string, existingMembers: FamilyMembe
             parentNames: { 
               type: Type.ARRAY, 
               items: { type: Type.STRING },
-              description: "List of names of this person's parents"
+              description: "Names of parents identified in text"
             },
-            spouseName: { type: Type.STRING }
+            spouseName: { type: Type.STRING, description: "Name of spouse identified in text" }
           },
           required: ["name"]
         }

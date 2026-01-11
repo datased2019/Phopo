@@ -8,12 +8,16 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap');
     
     body {
       font-family: 'Inter', sans-serif;
       overflow: hidden;
       background: #020617;
+      /* Improve text rendering */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
     }
     
     .font-outfit {
@@ -24,6 +28,7 @@
     .isometric-container {
       perspective: 4000px;
       transform-style: preserve-3d;
+      will-change: transform; /* Hint browser to optimize compositing */
     }
 
     .transform-style-3d {
@@ -33,11 +38,13 @@
     /* Card styling for 2.5D effect */
     .node-card-3d {
       transform-style: preserve-3d;
-      transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1), z-index 0s;
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), z-index 0s;
+      /* Improve border rendering in 3D */
+      backface-visibility: hidden; 
     }
     
     .node-card-3d:hover {
-      transform: translate3d(-50%, -50%, 60px) !important;
+      transform: translate3d(-50%, -50%, 25px) !important;
       z-index: 1000 !important;
     }
 
